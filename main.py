@@ -20,9 +20,7 @@ def datetime_sereis_to_pereod_month(date_sereis: pd.DataFrame | pd.Series):
 def df_to_date_target(data: pd.DataFrame, target_col, date_col="date"):
     data = series_to_datetime(data)
 
-    data[date_col] = datetime_sereis_to_pereod_month(data[date_col])
     date = data[date_col]
-
     target = data[target_col]
 
     return date, target
@@ -31,7 +29,7 @@ def df_to_date_target(data: pd.DataFrame, target_col, date_col="date"):
 def plot_bear_market(date, target, target_name):
     fontsize = 14
 
-    fig, ax = plt.subplots()
+    _, ax = plt.subplots()
     ax.plot(date, target)
 
     plt.title("Bear Market Analysis", fontsize=fontsize + 4)
@@ -42,15 +40,32 @@ def plot_bear_market(date, target, target_name):
 
 # for step 1
 def group_date_per_8_month(date_sereis: pd.DataFrame | pd.Series):
+    date = datetime_sereis_to_pereod_month(date_sereis)
+
     group_date = []
     current_idx = 0
 
-    for i in range(date_sereis.size):
-        if i > 0 and (i % 8 == 0 or i == date_sereis.size - 1):
-            group_date.append(date_sereis[current_idx:i])
+    for i in range(date.size):
+        if i > 0 and (i % 8 == 0 or i == date.size - 1):
+            group_date.append(date[current_idx:i])
             current_idx = i
 
     return group_date
+
+
+def pick_high_low_from_group_date(
+    group_date: list[pd.Series], target: pd.DataFrame | pd.Series
+):
+    picked_group_date = []
+
+    for i in range(len(group_date)):
+        values: pd.Series = target.loc[group_date[i].index]
+        min_idx = values.idxmin(axis="index")
+        max_idx = values.idxmax(axis="index")
+
+        picked_group_date.append(group_date[i].loc[[min_idx, max_idx]].sort_index())
+
+    return picked_group_date
 
 
 if __name__ == "__main__":
@@ -59,11 +74,10 @@ if __name__ == "__main__":
 
     date, target = df_to_date_target(data, target_name)
 
-    print(date)
-
     group_date = group_date_per_8_month(date)
+    picked_group_date = pick_high_low_from_group_date(group_date, target)
 
-    print(group_date)
-    print(target.iloc[group_date[0].index])
+    new_date: pd.Series = date.loc[pd.concat([*picked_group_date], axis="index").index]
+    new_target = target.loc[new_date.index]
 
-    # plot_bear_market(date, target, target_name)
+    plot_bear_market(new_date, new_target, target_name)

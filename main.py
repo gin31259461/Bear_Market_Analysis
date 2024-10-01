@@ -32,7 +32,7 @@ def plot_bear_market(date, target, target_name):
     _, ax = plt.subplots()
     ax.plot(date, target)
 
-    plt.title("Bear Market Analysis", fontsize=fontsize + 4)
+    plt.title("Bear Market Plot", fontsize=fontsize + 4)
     plt.xlabel("timestamp", fontsize=fontsize)
     plt.ylabel(target_name, fontsize=fontsize)
     plt.show()
@@ -42,7 +42,7 @@ def plot_bear_market_step(date, target, target_name):
     fontsize = 14
 
     plt.step(date, target)
-    plt.title("Bear Market Analysis", fontsize=fontsize + 4)
+    plt.title("Bear Market Binary Plot", fontsize=fontsize + 4)
     plt.xlabel("timestamp", fontsize=fontsize)
     plt.ylabel(target_name, fontsize=fontsize)
     plt.show()
@@ -275,7 +275,11 @@ if __name__ == "__main__":
         save_bear_market_step(final_date, binary_target, target_name)
 
         final_binary_step_df = pd.DataFrame(
-            {"date": final_date, target_name: binary_target}
+            {
+                "date": final_date,
+                f"{target_name}_value": final_target,
+                f"{target_name}_binary": binary_target,
+            }
         )
 
         final_binary_step_df.to_csv(f"./result/data/{target_name}.csv", index=False)

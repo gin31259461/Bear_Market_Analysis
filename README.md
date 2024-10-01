@@ -1,4 +1,4 @@
-# Bear Market Analysis
+# Bear Market Filter & Binary Generator
 
 ## 篩選步驟
 

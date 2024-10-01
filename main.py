@@ -38,6 +38,27 @@ def plot_bear_market(date, target, target_name):
     plt.show()
 
 
+def plot_bear_market_step(date, target, target_name):
+    fontsize = 14
+
+    plt.step(date, target)
+    plt.title("Bear Market Analysis", fontsize=fontsize + 4)
+    plt.xlabel("timestamp", fontsize=fontsize)
+    plt.ylabel(target_name, fontsize=fontsize)
+    plt.show()
+
+
+def save_bear_market_step(date, target, target_name):
+    fontsize = 14
+
+    plt.clf()
+    plt.step(date, target)
+    plt.title("Bear Market Analysis", fontsize=fontsize + 4)
+    plt.xlabel("timestamp", fontsize=fontsize)
+    plt.ylabel(target_name, fontsize=fontsize)
+    plt.savefig(f"./result/figures/{target_name}.png")
+
+
 # step 1
 
 
@@ -88,7 +109,7 @@ def force_turning_point(date: pd.Series, target: pd.Series):
     target = target.copy()
 
     if target.size < 2:
-        raise IndexError("target size must >= 2")
+        raise UnboundLocalError("target size must >= 2")
 
     tp: pd.Series = pd.Series()
     pick_tp_idx = []
@@ -107,6 +128,9 @@ def force_turning_point(date: pd.Series, target: pd.Series):
             else:
                 false_tp_idx.append(tp.index[i])
 
+        if len(false_tp_idx) > 0:
+            pick_tp_idx.append(target.loc[false_tp_idx].idxmax(axis="index"))
+
     # low -> high -> low
     elif target.iloc[0] < target.iloc[1]:
         tp = (target.shift(-1) < target) & (target > target.shift(1))
@@ -121,31 +145,143 @@ def force_turning_point(date: pd.Series, target: pd.Series):
             else:
                 false_tp_idx.append(tp.index[i])
 
+        if len(false_tp_idx) > 0:
+            pick_tp_idx.append(target.loc[false_tp_idx].idxmin(axis="index"))
+
     return date.loc[pick_tp_idx], target.loc[pick_tp_idx]
 
 
 # step 3
-
-
 def delete_start_end_6_month(date: pd.Series, target: pd.Series):
-    pass
+    if date.size < 12:
+        raise UnboundLocalError("date and target size must >= 12")
+
+    copy_date: pd.Series = date.iloc[7 : date.size - 6]
+    copy_target: pd.Series = target.iloc[7 : date.size - 6]
+
+    copy_date, copy_target = force_turning_point(copy_date, copy_target)
+
+    return copy_date, copy_target
+
+
+# step 4
+# high low high ...
+# NaT  NaT high low high ... (shift -> 2)
+def delete_period_less_than_16_month(date: pd.Series, target: pd.Series):
+    pick_rule: pd.Series = pd.Series()
+    copy_date = date.copy()
+    copy_target = target.copy()
+
+    while True:
+        diff_period = copy_date.dt.to_period("M").astype(int) - copy_date.dt.to_period(
+            "M"
+        ).astype(int).shift(2)
+
+        pick_rule = (diff_period <= 16).astype(int)
+
+        period_less_than_16_month: pd.Series = pick_rule.loc[pick_rule == 1]
+
+        # break loop until not period less than 16 month occur
+        if period_less_than_16_month.size == 0:
+            break
+
+        # pick first period less than 16 month to delete
+        copy_date: pd.Series = copy_date.loc[
+            copy_date.index != period_less_than_16_month.index[0]
+        ]
+        copy_target: pd.Series = copy_target.loc[copy_date.index]
+
+        # then force turning point again
+        copy_date, copy_target = force_turning_point(copy_date, copy_target)
+
+    pick_idx = pick_rule.index
+
+    return date.loc[pick_idx], target.loc[pick_idx]
+
+
+# step 5
+def delete_period_less_than_4_month(date: pd.Series, target: pd.Series):
+    pick_rule: pd.Series = pd.Series()
+    copy_date = date.copy()
+    copy_target = target.copy()
+
+    while True:
+        diff_period = copy_date.dt.to_period("M").astype(int) - copy_date.dt.to_period(
+            "M"
+        ).astype(int).shift(2)
+
+        diff_value_change = (copy_target - copy_target.shift(2)) / copy_target.shift(2)
+
+        pick_rule = ((diff_period < 4) & (diff_value_change <= 0.2)).astype(int)
+
+        period_less_than_4_month: pd.Series = pick_rule.loc[pick_rule == 1]
+
+        # break loop until not period less than 4 month occur
+        if period_less_than_4_month.size == 0:
+            break
+
+        # pick first period less than 4 month to delete
+        copy_date: pd.Series = copy_date.loc[
+            copy_date.index != period_less_than_4_month.index[0]
+        ]
+        copy_target: pd.Series = copy_target.loc[copy_date.index]
+
+        # then force turning point again
+        # copy_date, copy_target = force_turning_point(copy_date, copy_target)
+
+    pick_idx = pick_rule.index
+
+    return date.loc[pick_idx], target.loc[pick_idx]
+
+
+def target_to_binary_series(target: pd.Series):
+    binary_target = target - target.shift(1)
+    binary_target = (binary_target > 0).astype(int)
+
+    if target.iloc[0] > target.iloc[1]:
+        binary_target.iloc[0] = 1
+
+    return binary_target
 
 
 if __name__ == "__main__":
-    target_name = "sp500"
-    # target_name = "P_gold"
-    data = pd.read_csv("./Bear_Market.csv")
+    date_col = "date"
+    data = pd.read_csv("./data/Bear_Market.csv")
+    target_names = data.columns.drop(date_col).tolist()
 
-    date, target = df_to_date_target(data, target_name)
+    for target_name in target_names:
+        date, target = df_to_date_target(data, target_name)
 
-    picked_date, picked_target = init_turning_point(date, target)
+        picked_date, picked_target = init_turning_point(date, target)
 
-    date_turning_point, target_turning_point = force_turning_point(
-        picked_date, picked_target
-    )
+        date_turning_point, target_turning_point = force_turning_point(
+            picked_date, picked_target
+        )
 
-    delete_start_end_6_month(date_turning_point, target_turning_point)
+        date_turning_point, target_turning_point = delete_start_end_6_month(
+            date_turning_point, target_turning_point
+        )
 
-    # plot_bear_market(date, target, target_name)
-    # plot_bear_market(picked_date, picked_target, target_name)
-    plot_bear_market(date_turning_point, target_turning_point, target_name)
+        date_turning_point, target_turning_point = delete_period_less_than_16_month(
+            date_turning_point, target_turning_point
+        )
+
+        final_date, final_target = delete_period_less_than_4_month(
+            date_turning_point, target_turning_point
+        )
+
+        binary_target = target_to_binary_series(final_target)
+
+        save_bear_market_step(final_date, binary_target, target_name)
+
+        final_binary_step_df = pd.DataFrame(
+            {"date": final_date, target_name: binary_target}
+        )
+
+        final_binary_step_df.to_csv(f"./result/data/{target_name}.csv", index=False)
+
+        # plot_bear_market(date, target, target_name)
+        # plot_bear_market(picked_date, picked_target, target_name)
+        # plot_bear_market(date_turning_point, target_turning_point, target_name)
+        # plot_bear_market(final_date, final_target, target_name)
+        # plot_bear_market_step(final_date, binary_target, target_name)

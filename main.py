@@ -200,7 +200,7 @@ def delete_period_less_than_16_month(date: pd.Series, target: pd.Series):
 
 
 # step 5
-def delete_period_less_than_4_month(date: pd.Series, target: pd.Series):
+def delete_half_period_less_than_4_month(date: pd.Series, target: pd.Series):
     pick_rule: pd.Series = pd.Series()
     copy_date = date.copy()
     copy_target = target.copy()
@@ -208,21 +208,21 @@ def delete_period_less_than_4_month(date: pd.Series, target: pd.Series):
     while True:
         diff_period = copy_date.dt.to_period("M").astype(int) - copy_date.dt.to_period(
             "M"
-        ).astype(int).shift(2)
+        ).astype(int).shift(1)
 
-        diff_value_change = (copy_target - copy_target.shift(2)) / copy_target.shift(2)
+        diff_value_change = (copy_target - copy_target.shift(1)) / copy_target.shift(1)
 
         pick_rule = ((diff_period < 4) & (diff_value_change <= 0.2)).astype(int)
 
-        period_less_than_4_month: pd.Series = pick_rule.loc[pick_rule == 1]
+        half_period_less_than_4_month: pd.Series = pick_rule.loc[pick_rule == 1]
 
         # break loop until not period less than 4 month occur
-        if period_less_than_4_month.size == 0:
+        if half_period_less_than_4_month.size == 0:
             break
 
         # pick first period less than 4 month to delete
         copy_date: pd.Series = copy_date.loc[
-            copy_date.index != period_less_than_4_month.index[0]
+            copy_date.index != half_period_less_than_4_month.index[0]
         ]
         copy_target: pd.Series = copy_target.loc[copy_date.index]
 
@@ -266,7 +266,7 @@ if __name__ == "__main__":
             date_turning_point, target_turning_point
         )
 
-        final_date, final_target = delete_period_less_than_4_month(
+        final_date, final_target = delete_half_period_less_than_4_month(
             date_turning_point, target_turning_point
         )
 

@@ -1,9 +1,18 @@
-import matplotlib
-import pandas as pd
-
-matplotlib.use("GTK3Agg")
+import os
 
 import matplotlib.pyplot as plt
+import pandas as pd
+
+data_dir = "./result/data"
+figure_dir = "./result/figures"
+
+if not os.path.exists(data_dir):
+    os.makedirs(data_dir)
+
+if not os.path.exists(figure_dir):
+    os.makedirs(figure_dir)
+
+# matplotlib.use("GTK3Agg")
 
 
 def df_col_to_datetime(data: pd.DataFrame, date_col="date"):
@@ -227,7 +236,7 @@ def delete_half_period_less_than_4_month(date: pd.Series, target: pd.Series):
         copy_target: pd.Series = copy_target.loc[copy_date.index]
 
         # then force turning point again
-        # copy_date, copy_target = force_turning_point(copy_date, copy_target)
+        copy_date, copy_target = force_turning_point(copy_date, copy_target)
 
     pick_idx = pick_rule.index
 
@@ -246,8 +255,10 @@ def target_to_binary_series(target: pd.Series):
 
 if __name__ == "__main__":
     date_col = "date"
-    data = pd.read_csv("./data/Bear_Market.csv")
+    data = pd.read_csv("./data/Bear_Market_2.csv")
     target_names = data.columns.drop(date_col).tolist()
+
+    target_names = ["Dow Jones"]
 
     for target_name in target_names:
         date, target = df_to_date_target(data, target_name)
